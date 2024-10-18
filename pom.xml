@@ -12,16 +12,27 @@
   <url>http://www.datasqrl.com</url>
   <modules>
     <module>sqrl-math</module>
+      <module>sqrl-openai</module>
   </modules>
 
   <properties>
     <auto-service.version>1.0.1</auto-service.version>
-    <flink-table-api-java-bridge.version>1.19.0</flink-table-api-java-bridge.version>
+    <flink.version>1.19.1</flink.version>
     <commons-math3.version>3.6.1</commons-math3.version>
+    <lombok.version>1.18.24</lombok.version>
+    <jackson.version>2.14.0</jackson.version>
+    <junit.jupiter.version>5.8.2</junit.jupiter.version>
+    <mockito.version>4.8.0</mockito.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${lombok.version}</version>
+        <scope>provided</scope>
+      </dependency>
       <dependency>
         <groupId>com.google.auto.service</groupId>
         <artifactId>auto-service</artifactId>
@@ -31,8 +42,14 @@
       <dependency>
         <groupId>org.apache.flink</groupId>
         <artifactId>flink-table-api-java-bridge</artifactId>
-        <version>${flink-table-api-java-bridge.version}</version>
+        <version>${flink.version}</version>
         <scope>provided</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${jackson.version}</version>
       </dependency>
 
       <dependency>
@@ -40,7 +57,56 @@
         <artifactId>commons-math3</artifactId>
         <version>${commons-math3.version}</version>
       </dependency>
+
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-engine</artifactId>
+        <version>${junit.jupiter.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-core</artifactId>
+        <version>${mockito.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-inline</artifactId>
+        <version>${mockito.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-test-utils</artifactId>
+        <version>${flink.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-table-planner_2.12</artifactId>
+        <version>${flink.version}</version>
+        <scope>test</scope>
+      </dependency>
     </dependencies>
   </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+    </dependency>
+  </dependencies>
 
 </project>

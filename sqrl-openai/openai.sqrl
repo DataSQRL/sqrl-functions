@@ -1,0 +1,8 @@
+IMPORT schema.data;
+IMPORT target.*;
+
+results := SELECT prompt AS pr,
+    completions(prompt, 'gpt-4o') AS re,
+    extract_json(prompt, 'gpt-4o') AS ex,
+    CAST(vector_embedd(prompt, 'text-embedding-ada-002') AS STRING) AS em
+    FROM data;
