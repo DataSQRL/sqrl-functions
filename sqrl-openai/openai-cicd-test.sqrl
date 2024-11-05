@@ -1,5 +1,6 @@
-IMPORT mock.data;
 IMPORT target.*;
+
+data := SELECT * FROM (VALUES(1)) AS t(val);
 
 /*+test */
 results := SELECT
