@@ -1,108 +1,105 @@
 package com.datasqrl.openai;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.io.IOException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.IOException;
-
+@ExtendWith(MockitoExtension.class)
 class ExtractJsonTest {
 
-    @Test
-    void testEvalSuccessfulCompletion() {
-        // Mock the static method call
-        String expectedResponse = "{\"key\": \"value\"}";
+    @Mock
+    private HttpClient mockHttpClient;
 
-        // Prepare for static mocking
-        try (MockedStatic<OpenAICompletions> mockedCompletions = Mockito.mockStatic(OpenAICompletions.class)) {
-            mockedCompletions.when(() -> OpenAICompletions.callCompletions(anyString(), anyString(), eq(true),
-                            any(), anyDouble(), anyDouble()))
-                    .thenReturn(expectedResponse);
+    @Mock
+    private HttpResponse<String> mockHttpResponse;
 
-            extract_json function = new extract_json();
-            String result = function.eval("prompt", "model", 0.7, 0.9);
+    @InjectMocks
+    private OpenAICompletions openAICompletions;
 
-            assertEquals(expectedResponse, result);
-        }
+    private extract_json function;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        function = new extract_json() {
+            @Override
+            public OpenAICompletions createOpenAICompletions() {
+                return openAICompletions;
+            }
+        };
+        function.open(null);
     }
 
     @Test
-    void testEvalWithDefaults() {
-        String expectedResponse = "{\"key\": \"default\"}";
+    void testEvalSuccessfulCompletion() throws IOException, InterruptedException {
+        String responseBody = "{\n" +
+                "  \"choices\": [\n" +
+                "    {\n" +
+                "      \"message\": {\n" +
+                "        \"content\": \"Hello.\"\n" +
+                "      }\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}\n";
 
-        try (MockedStatic<OpenAICompletions> mockedCompletions = Mockito.mockStatic(OpenAICompletions.class)) {
-            mockedCompletions.when(() -> OpenAICompletions.callCompletions(anyString(), anyString(), eq(true), any(), isNull(), isNull()))
-                    .thenReturn(expectedResponse);
+        String expectedResponse = "Hello.";
 
-            extract_json function = new extract_json();
-            String result = function.eval("prompt", "model"); // Calling without optional params
+        // Configure the mock to return a successful response
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(responseBody);
 
-            assertEquals(expectedResponse, result);
-        }
+        String result = function.eval("prompt", "model", 0.1, 0.9);
+
+        assertEquals(expectedResponse, result);
     }
 
     @Test
-    void testEvalErrorHandling() {
-        // Mock the static method to throw IOException
-        try (MockedStatic<OpenAICompletions> mockedCompletions = Mockito.mockStatic(OpenAICompletions.class)) {
-            mockedCompletions.when(() -> OpenAICompletions.callCompletions(
-                            anyString(),
-                            anyString(),
-                            eq(true),
-                            any(),
-                            anyDouble(),
-                            anyDouble()))
-                    .thenThrow(new IOException("Test Exception"));
+    void testEvalWithDefaults() throws IOException, InterruptedException {
+        String responseBody = "{\n" +
+                "  \"choices\": [\n" +
+                "    {\n" +
+                "      \"message\": {\n" +
+                "        \"content\": \"Hello.\"\n" +
+                "      }\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}\n";
 
-            extract_json function = new extract_json();
-            String result = function.eval("prompt", "model", 0.7, 0.9);
+        String expectedResponse = "Hello.";
 
-            // Verify that the callCompletions method was called only once
-            mockedCompletions.verify(() -> OpenAICompletions.callCompletions(
-                    anyString(),
-                    anyString(),
-                    eq(true),
-                    any(),
-                    anyDouble(),
-                    anyDouble()
-            ), times(1));
+        // Configure the mock to return a successful response with defaults
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(mockHttpResponse);
+        when(mockHttpResponse.statusCode()).thenReturn(200);
+        when(mockHttpResponse.body()).thenReturn(responseBody);
 
-            assertNull(result);
-        }
+        String result = function.eval("prompt", "model");
+
+        assertEquals(expectedResponse, result);
     }
 
     @Test
-    public void testEvalRetriesOnFailure() {
-        // Mock the static method in OpenAICompletions
-        try (MockedStatic<OpenAICompletions> mockedCompletions = Mockito.mockStatic(OpenAICompletions.class)) {
-            // Set up the mock to return null each time, simulating a failure
-            mockedCompletions.when(() -> OpenAICompletions.callCompletions(
-                            anyString(),
-                            anyString(),
-                            eq(true),
-                            any(),
-                            anyDouble(),
-                            anyDouble()))
-                    .thenThrow(new IOException("Test Exception"));
+    void testEvalErrorHandling() throws IOException, InterruptedException {
+        // Configure the mock to throw an IOException, simulating repeated failures
+        when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenThrow(new IOException("Test Exception"));
 
-            // Execute the function with retries
-            extract_json function = new extract_json();
-            String result = function.eval("prompt", "model", 0.7, 0.9, 3);
+        String result = function.eval("prompt", "model", 0.7, 0.9);
 
-            // Verify that the callCompletions method was attempted 3 times
-            mockedCompletions.verify(() -> OpenAICompletions.callCompletions(
-                    anyString(),
-                    anyString(),
-                    eq(true),
-                    any(),
-                    anyDouble(),
-                    anyDouble()
-            ), times(3));
-
-            // Ensure that result is null after exhausting retries
-            assertNull(result);
-        }
+        // Verify that the send method was attempted 3 times due to retry logic
+        verify(mockHttpClient, times(3)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+        assertNull(result);
     }
 }

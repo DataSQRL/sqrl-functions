@@ -1,16 +1,15 @@
 package com.datasqrl.openai;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 
 import static com.datasqrl.openai.OpenAIUtil.API_KEY;
@@ -23,8 +22,40 @@ public class OpenAICompletions {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    public static String callCompletions(String prompt, String modelName, Boolean requireJsonOutput, Integer maxOutputTokens, Double temperature, Double topP) throws IOException {
+    private final HttpClient httpClient;
+
+    public OpenAICompletions() {
+        httpClient = HttpClient.newHttpClient();
+    }
+
+    public OpenAICompletions(HttpClient httpClient) {
+        this.httpClient = httpClient;
+    }
+
+    public String callCompletions(String prompt, String modelName, Boolean requireJsonOutput, Integer maxOutputTokens, Double temperature, Double topP) throws IOException, InterruptedException {
         // Create the request body JSON
+        ObjectNode requestBody = createRequestBody(prompt, modelName, requireJsonOutput, maxOutputTokens, temperature, topP);
+
+        // Build the HTTP request
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(COMPLETIONS_API))
+                .header("Authorization", "Bearer " + System.getenv(API_KEY))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString(), StandardCharsets.UTF_8))
+                .build();
+
+        // Send the request and get the response
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        // Handle the response
+        if (response.statusCode() == 200) {
+            return extractContent(response.body());
+        } else {
+            throw new IOException("Failed to get completion: HTTP status code " + response.statusCode() + " Message: " + response.body());
+        }
+    }
+
+    private ObjectNode createRequestBody(String prompt, String modelName, Boolean requireJsonOutput, Integer maxOutputTokens, Double temperature, Double topP) {
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.put("model", modelName);
 
@@ -48,42 +79,14 @@ public class OpenAICompletions {
             requestBody.put("max_tokens", maxOutputTokens);
         }
 
-        // Create an HTTP connection
-        HttpURLConnection connection = (HttpURLConnection) new URL(COMPLETIONS_API).openConnection();
-        connection.setRequestMethod("POST");
-        connection.setRequestProperty("Authorization", "Bearer " + System.getenv(API_KEY));
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setDoOutput(true);
+        return requestBody;
+    }
 
-        // Send the request body
-        try (OutputStream os = connection.getOutputStream()) {
-            byte[] input = requestBody.toString().getBytes(StandardCharsets.UTF_8);
-            os.write(input, 0, input.length);
-        }
-
-        // Read the response
-        int statusCode = connection.getResponseCode();
-        if (statusCode == 200) {
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
-                StringBuilder response = new StringBuilder();
-                String responseLine;
-                while ((responseLine = br.readLine()) != null) {
-                    response.append(responseLine.trim());
-                }
-
-                // Parse JSON response
-                JsonNode jsonResponse = objectMapper.readTree(response.toString());
-
-                // Extract the content from the first choice
-                String content = jsonResponse.get("choices").get(0)
-                        .get("message").get("content").asText().trim();
-
-                // Assuming the completion is valid JSON, parse it into a JsonNode
-                return content;
-            }
-        } else {
-            throw new IOException("Failed to get completion: HTTP status code " + statusCode + " Message: " + connection.getResponseMessage());
-        }
+    private String extractContent(String jsonResponse) throws IOException {
+        JsonNode jsonNode = objectMapper.readTree(jsonResponse);
+        // Extract the content from the first choice
+        return jsonNode.get("choices").get(0)
+                .get("message").get("content").asText().trim();
     }
 
     private static ObjectNode createMessage(String role, String prompt) {

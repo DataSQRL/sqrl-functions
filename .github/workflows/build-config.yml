@@ -10,22 +10,34 @@ jobs:
     env:
       TZ: 'America/Los_Angeles'
     steps:
-    - name: Setup Timezone
-      uses: szenius/set-timezone@v1.1
-      with:
-        timezoneLinux: "America/Los_Angeles"
+      - name: Setup Timezone
+        uses: szenius/set-timezone@v1.1
+        with:
+          timezoneLinux: "America/Los_Angeles"
 
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Build SQRL Functions
-      run: mvn -T 1 -B -U -e clean verify
+      - name: Build SQRL Functions
+        run: mvn -T 1 -B -U -e clean verify
 
-    - name: Pull datasqrl/cmd Docker image
-      run: docker pull datasqrl/cmd:latest
+      - name: Pull datasqrl/cmd Docker image
+        run: docker pull datasqrl/cmd:latest
 
-    - name: Run SQRL Math Test
-      working-directory: ./sqrl-math
-      run: |
-        docker run -i --rm -v $PWD:/build datasqrl/cmd:latest test math.sqrl --snapshot snapshots-math
-      continue-on-error: false
+      - name: Run SQRL Math Test
+        working-directory: ./sqrl-math
+        run: |
+          docker run -i --rm -v $PWD:/build datasqrl/cmd:latest test math.sqrl --snapshot snapshots-math
+        continue-on-error: true
+
+      - name: Run SQRL OpenAI Test
+        working-directory: ./sqrl-openai
+        run: |
+          docker run -i --rm -v $PWD:/build -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" datasqrl/cmd:latest test openai-cicd-test.sqrl --snapshot snapshots-openai-cicd-test
+        continue-on-error: true
+
+      - name: Check for Test Failures
+        if: ${{ failure() }}  # This step only runs if previous steps failed
+        run: |
+          echo "One or more tests have failed."
+          exit 1

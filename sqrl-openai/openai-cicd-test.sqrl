@@ -1,0 +1,9 @@
+IMPORT mock.data;
+IMPORT target.*;
+
+/*+test */
+results := SELECT
+            completions('Reply this exactly: \"Crunching data like a squirrel.\"', 'gpt-4o', 50, 0.1) AS co,
+            extract_json('Reply this exactly: \"Crunching data like a squirrel.\" in the \"response\" property.', 'gpt-4o', 0.1) AS ex,
+            CAST(vector_embedd('Crunching data like a squirrel.', 'text-embedding-ada-002') AS STRING) AS em
+           FROM data;

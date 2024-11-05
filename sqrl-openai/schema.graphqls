@@ -3,7 +3,7 @@ scalar DateTime
 
 type Results {
   pr: String
-  re: String
+  co: String
   ex: String
   em: String
 }

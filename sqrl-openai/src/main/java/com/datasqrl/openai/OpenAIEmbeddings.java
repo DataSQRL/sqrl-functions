@@ -1,20 +1,18 @@
 package com.datasqrl.openai;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 
-import static com.datasqrl.openai.OpenAIUtil.API_KEY;
-import static com.datasqrl.openai.OpenAIUtil.EMBEDDING_API;
+import static com.datasqrl.openai.OpenAIUtil.*;
 
 public class OpenAIEmbeddings {
 
@@ -22,11 +20,21 @@ public class OpenAIEmbeddings {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    public static double[] vectorEmbedd(String text, String modelName) throws IOException {
+    private final HttpClient httpClient;
+
+    public OpenAIEmbeddings() {
+        this.httpClient = HttpClient.newHttpClient();
+    }
+
+    public OpenAIEmbeddings(HttpClient httpClient) {
+        this.httpClient = httpClient;
+    }
+
+    public double[] vectorEmbedd(String text, String modelName) throws IOException, InterruptedException {
         return vectorEmbedd(text, modelName, TOKEN_LIMIT);
     }
 
-    public static double[] vectorEmbedd(String text, String modelName, int tokenLimit) throws IOException {
+    public double[] vectorEmbedd(String text, String modelName, int tokenLimit) throws IOException, InterruptedException {
         // Truncate text to fit the maximum token limit
         text = truncateText(text, tokenLimit);
 
@@ -35,43 +43,36 @@ public class OpenAIEmbeddings {
         requestBody.put("input", text);
         requestBody.put("model", modelName);
 
-        // Create an HTTP connection
-        HttpURLConnection connection = (HttpURLConnection) new URL(EMBEDDING_API).openConnection();
-        connection.setRequestMethod("POST");
-        connection.setRequestProperty("Authorization", "Bearer " + System.getenv(API_KEY));
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setDoOutput(true);
+        // Build the HTTP request
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(EMBEDDING_API))
+                .header("Authorization", "Bearer " + System.getenv(API_KEY))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString(), StandardCharsets.UTF_8))
+                .build();
 
-        // Send the request body
-        try (OutputStream os = connection.getOutputStream()) {
-            byte[] input = objectMapper.writeValueAsBytes(requestBody);
-            os.write(input, 0, input.length);
-        }
+        // Send the request and get the response
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-        // Read the response
-        int statusCode = connection.getResponseCode();
-        if (statusCode == 200) {
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
-                StringBuilder response = new StringBuilder();
-                String responseLine;
-                while ((responseLine = br.readLine()) != null) {
-                    response.append(responseLine.trim());
-                }
-
-                // Parse JSON response
-                JsonNode jsonResponse = objectMapper.readTree(response.toString());
-                ArrayNode embeddingArray = (ArrayNode) jsonResponse.get("data").get(0).get("embedding");
-
-                // Convert JSON array to a double array (embedding vector)
-                double[] embeddingVector = new double[embeddingArray.size()];
-                for (int i = 0; i < embeddingArray.size(); i++) {
-                    embeddingVector[i] = embeddingArray.get(i).asDouble();
-                }
-                return embeddingVector;
-            }
+        // Handle the response
+        if (response.statusCode() == 200) {
+            return parseEmbeddingVector(response.body());
         } else {
-            throw new IOException("Failed to get embedding: HTTP status code " + statusCode);
+            throw new IOException("Failed to get embedding: HTTP status code " + response.statusCode());
         }
+    }
+
+    private double[] parseEmbeddingVector(String responseBody) throws IOException {
+        // Parse JSON response
+        JsonNode jsonResponse = objectMapper.readTree(responseBody);
+        ArrayNode embeddingArray = (ArrayNode) jsonResponse.get("data").get(0).get("embedding");
+
+        // Convert JSON array to a double array (embedding vector)
+        double[] embeddingVector = new double[embeddingArray.size()];
+        for (int i = 0; i < embeddingArray.size(); i++) {
+            embeddingVector[i] = embeddingArray.get(i).asDouble();
+        }
+        return embeddingVector;
     }
 
     // Method to truncate the text if it exceeds the token limit (adjust as needed)
