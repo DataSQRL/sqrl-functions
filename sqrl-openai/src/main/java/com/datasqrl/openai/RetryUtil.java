@@ -13,14 +13,14 @@ public class RetryUtil {
     private static final String MAX_RETRIES = "FUNCTION_MAX_RETRIES";
     private static final int MAX_RETRIES_DEFAULT = 3;
 
-    public static <T> T executeWithRetry(Callable<T> task) {
+    public static <T> T executeWithRetry(Callable<T> task, Runnable onError, Runnable onRetry) {
         int maxRetries = Optional.ofNullable(System.getenv(MAX_RETRIES))
                 .map(Integer::parseInt)
                 .orElse(MAX_RETRIES_DEFAULT);
-        return executeWithRetry(task, maxRetries);
+        return executeWithRetry(task, onError, onRetry, maxRetries);
     }
 
-    public static <T> T executeWithRetry(Callable<T> task, int maxRetries) {
+    public static <T> T executeWithRetry(Callable<T> task, Runnable onError, Runnable onRetry, int maxRetries) {
         int attempts = 0;
 
         while (true) {
@@ -30,9 +30,11 @@ public class RetryUtil {
                 attempts++;
                 if (attempts >= maxRetries) {
                     logger.error("Error occurred after {} attempts. Returning null.", maxRetries, e);
+                    onError.run();
                     return null; // Return null if retries are exhausted
                 }
                 logger.warn("Attempt {} failed. Retrying...", attempts, e);
+                onRetry.run();
             }
         }
     }

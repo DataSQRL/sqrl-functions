@@ -1,5 +1,8 @@
 package com.datasqrl.openai;
 
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.table.functions.FunctionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,6 +16,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
+import static com.datasqrl.openai.completions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,6 +30,21 @@ class CompletionsTest {
     @Mock
     private HttpResponse<String> mockHttpResponse;
 
+    @Mock
+    private FunctionContext functionContext;
+
+    @Mock
+    private MetricGroup metricGroup;
+
+    @Mock
+    private Counter callCounter;
+
+    @Mock
+    private Counter errorCounter;
+
+    @Mock
+    private Counter retryCounter;
+
     @InjectMocks
     private OpenAICompletions openAICompletions;
 
@@ -33,13 +52,18 @@ class CompletionsTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        when(functionContext.getMetricGroup()).thenReturn(metricGroup);
+        when(metricGroup.counter(eq(CALL_COUNT))).thenReturn(callCounter);
+        when(metricGroup.counter(eq(ERROR_COUNT))).thenReturn(errorCounter);
+        when(metricGroup.counter(eq(RETRY_COUNT))).thenReturn(retryCounter);
+
         function = new completions() {
             @Override
             public OpenAICompletions createOpenAICompletions() {
                 return openAICompletions;
             }
         };
-        function.open(null);
+        function.open(functionContext);
     }
 
     @Test
@@ -63,6 +87,10 @@ class CompletionsTest {
         when(mockHttpResponse.body()).thenReturn(responseBody);
 
         String result = function.eval("prompt", "model", 100, 0.1, 0.9);
+
+        verify(callCounter, times(1)).inc();
+        verify(errorCounter, never()).inc();
+        verify(retryCounter, never()).inc();
 
         assertEquals(expectedResponse, result);
     }
@@ -89,6 +117,10 @@ class CompletionsTest {
 
         String result = function.eval("prompt", "model");
 
+        verify(callCounter, times(1)).inc();
+        verify(errorCounter, never()).inc();
+        verify(retryCounter, never()).inc();
+
         assertEquals(expectedResponse, result);
     }
 
@@ -102,6 +134,10 @@ class CompletionsTest {
 
         // Verify that the send method was attempted 3 times
         verify(mockHttpClient, times(3)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+        verify(callCounter, times(1)).inc();
+        verify(errorCounter, times(1)).inc();
+        verify(retryCounter, times(2)).inc();
 
         assertNull(result);
     }

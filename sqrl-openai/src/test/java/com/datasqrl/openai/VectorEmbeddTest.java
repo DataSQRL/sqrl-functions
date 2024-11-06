@@ -1,5 +1,8 @@
 package com.datasqrl.openai;
 
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.table.functions.FunctionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +15,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
+import static com.datasqrl.openai.vector_embedd.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -27,17 +31,37 @@ class VectorEmbeddTest {
     @InjectMocks
     private OpenAIEmbeddings openAIEmbeddings;
 
+    @Mock
+    private FunctionContext functionContext;
+
+    @Mock
+    private MetricGroup metricGroup;
+
+    @Mock
+    private Counter callCounter;
+
+    @Mock
+    private Counter errorCounter;
+
+    @Mock
+    private Counter retryCounter;
+
     private vector_embedd function;
 
     @BeforeEach
-    public void setUp() throws Exception {
+    void setUp() throws Exception {
+        when(functionContext.getMetricGroup()).thenReturn(metricGroup);
+        when(metricGroup.counter(eq(CALL_COUNT))).thenReturn(callCounter);
+        when(metricGroup.counter(eq(ERROR_COUNT))).thenReturn(errorCounter);
+        when(metricGroup.counter(eq(RETRY_COUNT))).thenReturn(retryCounter);
+
         function = new vector_embedd() {
             @Override
             protected OpenAIEmbeddings createOpenAIEmbeddings() {
                 return openAIEmbeddings;
             }
         };
-        function.open(null);
+        function.open(functionContext);
     }
 
     @Test
@@ -51,24 +75,16 @@ class VectorEmbeddTest {
         // Execute function
         double[] result = function.eval("some text", "model-name");
 
+        verify(callCounter, times(1)).inc();
+        verify(errorCounter, never()).inc();
+        verify(retryCounter, never()).inc();
+
         // Verify the result
         assertArrayEquals(new double[]{0.1, 0.2, 0.3}, result);
     }
 
     @Test
     void testEvalErrorHandling() throws IOException, InterruptedException {
-        when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-                .thenThrow(new IOException("Test Exception"));
-
-        // Execute function with exception handling
-        double[] result = function.eval("some text", "model-name");
-
-        // Verify that result is null if IOException is thrown
-        assertNull(result);
-    }
-
-    @Test
-    void testEvalRetriesOnFailure() throws IOException, InterruptedException {
         // Mock the HttpClient to throw an IOException for retries
         when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
                 .thenThrow(new IOException("Test Exception"));
@@ -78,6 +94,10 @@ class VectorEmbeddTest {
 
         // Verify that HttpClient's send method was called 3 times due to retries
         verify(httpClient, times(3)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+        verify(callCounter, times(1)).inc();
+        verify(errorCounter, times(1)).inc();
+        verify(retryCounter,times(2)).inc();
 
         // Ensure that result is null after exhausting retries
         assertNull(result);

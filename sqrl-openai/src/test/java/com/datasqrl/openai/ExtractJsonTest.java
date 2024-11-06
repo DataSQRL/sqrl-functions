@@ -1,5 +1,8 @@
 package com.datasqrl.openai;
 
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.table.functions.FunctionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +15,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
+import static com.datasqrl.openai.extract_json.*;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -27,17 +31,37 @@ class ExtractJsonTest {
     @InjectMocks
     private OpenAICompletions openAICompletions;
 
+    @Mock
+    private FunctionContext functionContext;
+
+    @Mock
+    private MetricGroup metricGroup;
+
+    @Mock
+    private Counter callCounter;
+
+    @Mock
+    private Counter errorCounter;
+
+    @Mock
+    private Counter retryCounter;
+
     private extract_json function;
 
     @BeforeEach
     void setUp() throws Exception {
+        when(functionContext.getMetricGroup()).thenReturn(metricGroup);
+        when(metricGroup.counter(eq(CALL_COUNT))).thenReturn(callCounter);
+        when(metricGroup.counter(eq(ERROR_COUNT))).thenReturn(errorCounter);
+        when(metricGroup.counter(eq(RETRY_COUNT))).thenReturn(retryCounter);
+
         function = new extract_json() {
             @Override
             public OpenAICompletions createOpenAICompletions() {
                 return openAICompletions;
             }
         };
-        function.open(null);
+        function.open(functionContext);
     }
 
     @Test
@@ -61,6 +85,10 @@ class ExtractJsonTest {
         when(mockHttpResponse.body()).thenReturn(responseBody);
 
         String result = function.eval("prompt", "model", 0.1, 0.9);
+
+        verify(callCounter, times(1)).inc();
+        verify(errorCounter, never()).inc();
+        verify(retryCounter, never()).inc();
 
         assertEquals(expectedResponse, result);
     }
@@ -87,6 +115,10 @@ class ExtractJsonTest {
 
         String result = function.eval("prompt", "model");
 
+        verify(callCounter, times(1)).inc();
+        verify(errorCounter, never()).inc();
+        verify(retryCounter, never()).inc();
+
         assertEquals(expectedResponse, result);
     }
 
@@ -100,6 +132,11 @@ class ExtractJsonTest {
 
         // Verify that the send method was attempted 3 times due to retry logic
         verify(mockHttpClient, times(3)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+        verify(callCounter, times(1)).inc();
+        verify(errorCounter, times(1)).inc();
+        verify(retryCounter, times(2)).inc();
+
         assertNull(result);
     }
 }
