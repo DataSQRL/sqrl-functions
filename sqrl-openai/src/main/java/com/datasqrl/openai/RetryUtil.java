@@ -11,11 +11,12 @@ public class RetryUtil {
     private static final Logger logger = LoggerFactory.getLogger(RetryUtil.class);
 
     private static final String MAX_RETRIES = "FUNCTION_MAX_RETRIES";
+    private static final int MAX_RETRIES_DEFAULT = 3;
 
     public static <T> T executeWithRetry(Callable<T> task) {
         int maxRetries = Optional.ofNullable(System.getenv(MAX_RETRIES))
                 .map(Integer::parseInt)
-                .orElse(3);
+                .orElse(MAX_RETRIES_DEFAULT);
         return executeWithRetry(task, maxRetries);
     }
 

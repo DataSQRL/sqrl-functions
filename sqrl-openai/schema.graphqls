@@ -2,14 +2,14 @@
 scalar DateTime
 
 type Results {
-  pr: String
-  co: String
-  ex: String
-  em: String
+  prompt: String
+  completions_result: String
+  extract_json_result: String
+  vector_embedd_result: String
 }
 
 type Query {
-  results(pr: String, limit: Int = 10, offset: Int = 0): [Results!]
+  results(prompt: String, limit: Int = 10, offset: Int = 0): [Results!]
 }
 
 type Mutation {

@@ -4,7 +4,7 @@ data := SELECT * FROM (VALUES(1)) AS t(val);
 
 /*+test */
 results := SELECT
-            completions('Reply this exactly: \"Crunching data like a squirrel.\"', 'gpt-4o', 50, 0.1) AS co,
-            extract_json('Reply this exactly: \"Crunching data like a squirrel.\" in the \"response\" property.', 'gpt-4o', 0.1) AS ex,
-            CAST(vector_embedd('Crunching data like a squirrel.', 'text-embedding-ada-002') AS STRING) AS em
+            completions('Reply this exactly: \"Crunching data like a squirrel.\"', 'gpt-4o', 50, 0.1) AS completions_result,
+            extract_json('Reply this exactly: \"Crunching data like a squirrel.\" in the \"response\" property.', 'gpt-4o', 0.1) AS extract_json_result,
+            CAST(vector_embedd('Crunching data like a squirrel.', 'text-embedding-ada-002') AS STRING) AS vector_embedd_result
            FROM data;
