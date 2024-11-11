@@ -1,9 +1,7 @@
 package com.datasqrl.openai;
 
-import com.datasqrl.openai.util.P99LatencyTracker;
+import com.datasqrl.openai.util.FunctionMetricTracker;
 import com.google.auto.service.AutoService;
-import org.apache.flink.metrics.Counter;
-import org.apache.flink.metrics.Gauge;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.ScalarFunction;
 
@@ -14,31 +12,21 @@ import static com.datasqrl.openai.RetryUtil.executeWithRetry;
 @AutoService(ScalarFunction.class)
 public class completions extends ScalarFunction {
 
-    public static final String P99_METRIC = "com.datasqrl.openai.completions.p99";
-    public static final String CALL_COUNT = "com.datasqrl.openai.completions.callCount";
-    public static final String ERROR_COUNT = "com.datasqrl.openai.completions.errorCount";
-    public static final String RETRY_COUNT = "com.datasqrl.openai.completions.retryCount";
-
     private OpenAICompletions openAICompletions;
-
-    private transient P99LatencyTracker latencyTracker;
-    private transient Counter callCounter;
-    private transient Counter errorCounter;
-    private transient Counter retryCounter;
+    private FunctionMetricTracker metricTracker;
 
     @Override
     public void open(FunctionContext context) throws Exception {
         this.openAICompletions = createOpenAICompletions();
-        this.latencyTracker = new P99LatencyTracker(100);
-        context.getMetricGroup()
-                .gauge(P99_METRIC, (Gauge<Long>) () -> latencyTracker.getP99Latency());
-        callCounter = context.getMetricGroup().counter(CALL_COUNT);
-        errorCounter = context.getMetricGroup().counter(ERROR_COUNT);
-        retryCounter = context.getMetricGroup().counter(RETRY_COUNT);
+        this.metricTracker = createMetricTracker(context, completions.class.getSimpleName());
     }
 
     protected OpenAICompletions createOpenAICompletions() {
         return new OpenAICompletions();
+    }
+
+    protected FunctionMetricTracker createMetricTracker(FunctionContext context, String functionName) {
+        return new FunctionMetricTracker(context, functionName);
     }
 
     public String eval(String prompt, String modelName) {
@@ -54,18 +42,18 @@ public class completions extends ScalarFunction {
     }
 
     public String eval(String prompt, String modelName, Integer maxOutputTokens, Double temperature, Double topP) {
-        callCounter.inc();
+        metricTracker.increaseCallCount();
 
         long start = System.nanoTime();
 
         String ret = executeWithRetry(
                 () -> openAICompletions.callCompletions(prompt, modelName, false, maxOutputTokens, temperature, topP),
-                () -> errorCounter.inc(),
-                () -> retryCounter.inc()
+                () -> metricTracker.increaseErrorCount(),
+                () -> metricTracker.increaseRetryCount()
         );
 
         long elapsedTime = System.nanoTime() - start;
-        latencyTracker.recordLatency(TimeUnit.NANOSECONDS.toMillis(elapsedTime));
+        metricTracker.recordLatency(TimeUnit.NANOSECONDS.toMillis(elapsedTime));
 
         return ret;
     }

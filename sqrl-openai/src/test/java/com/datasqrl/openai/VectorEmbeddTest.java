@@ -15,7 +15,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-import static com.datasqrl.openai.vector_embedd.*;
+import static com.datasqrl.openai.util.FunctionMetricTracker.*;
+import static java.lang.String.format;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -50,10 +51,12 @@ class VectorEmbeddTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        final String functionName = vector_embedd.class.getSimpleName();
+
         when(functionContext.getMetricGroup()).thenReturn(metricGroup);
-        when(metricGroup.counter(eq(CALL_COUNT))).thenReturn(callCounter);
-        when(metricGroup.counter(eq(ERROR_COUNT))).thenReturn(errorCounter);
-        when(metricGroup.counter(eq(RETRY_COUNT))).thenReturn(retryCounter);
+        when(metricGroup.counter(eq(format(CALL_COUNT, functionName)))).thenReturn(callCounter);
+        when(metricGroup.counter(eq(format(ERROR_COUNT, functionName)))).thenReturn(errorCounter);
+        when(metricGroup.counter(eq(format(RETRY_COUNT, functionName)))).thenReturn(retryCounter);
 
         function = new vector_embedd() {
             @Override
@@ -61,6 +64,7 @@ class VectorEmbeddTest {
                 return openAIEmbeddings;
             }
         };
+
         function.open(functionContext);
     }
 

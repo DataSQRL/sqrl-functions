@@ -5,8 +5,15 @@ import java.util.Collections;
 import java.util.List;
 
 public class P99LatencyTracker {
+
+    private static final int DEFAULT_MAX_SIZE = 100; // Default size of the sliding window
+
     private final List<Long> latencies; // Stores the recorded latencies
     private final int maxSize; // Maximum size of the sliding window
+
+    public P99LatencyTracker() {
+        this(DEFAULT_MAX_SIZE);
+    }
 
     public P99LatencyTracker(int maxSize) {
         this.maxSize = maxSize;
