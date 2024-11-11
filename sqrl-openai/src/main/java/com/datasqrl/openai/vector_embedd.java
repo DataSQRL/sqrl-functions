@@ -30,6 +30,8 @@ public class vector_embedd extends ScalarFunction {
     }
 
     public double[] eval(String text, String modelName) {
+        if (text == null || modelName == null) return null;
+
         metricTracker.increaseCallCount();
 
         long start = System.nanoTime();

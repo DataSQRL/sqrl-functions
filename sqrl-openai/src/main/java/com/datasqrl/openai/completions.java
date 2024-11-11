@@ -42,6 +42,8 @@ public class completions extends ScalarFunction {
     }
 
     public String eval(String prompt, String modelName, Integer maxOutputTokens, Double temperature, Double topP) {
+        if (prompt == null || modelName == null) return null;
+
         metricTracker.increaseCallCount();
 
         long start = System.nanoTime();

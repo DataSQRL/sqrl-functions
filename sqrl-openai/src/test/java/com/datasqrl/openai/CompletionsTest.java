@@ -143,4 +143,13 @@ class CompletionsTest {
 
         assertNull(result);
     }
+
+    @Test
+    void testEvalWhenInputIsInvalid() throws IOException, InterruptedException {
+        assertNull(function.eval(null, null));
+        assertNull(function.eval("", null));
+        assertNull(function.eval(null, ""));
+
+        verify(mockHttpClient, never()).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    }
 }
