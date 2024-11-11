@@ -13,6 +13,7 @@ public class P99LatencyTrackerTest {
     public void setUp() {
         // Set up a new tracker with a max size of 100
         tracker = new P99LatencyTracker(100);
+        System.out.println("setUp() is called");
     }
 
     @Test
