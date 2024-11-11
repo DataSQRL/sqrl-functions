@@ -23,7 +23,7 @@ Open http://localhost:8888/graphiql/ in your browser and execute the following m
 ```graphql
 mutation {
     data(input: {
-        prompt: "Tell me a joke"
+        prompt: "Tell me a squirrel joke."
     }) {
         prompt
     }
@@ -36,9 +36,10 @@ To view the results, execute the following query:
 ```graphql
 {
     results {
-        pr
-        re
-        ex
+        prompt
+        completions_result
+        extract_json_result
+        vector_embedd_result
     }
 }
 ```
