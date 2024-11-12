@@ -12,8 +12,8 @@ import static com.datasqrl.openai.RetryUtil.executeWithRetry;
 @AutoService(ScalarFunction.class)
 public class extract_json extends ScalarFunction {
 
-    private OpenAICompletions openAICompletions;
-    private FunctionMetricTracker metricTracker;
+    private transient OpenAICompletions openAICompletions;
+    private transient FunctionMetricTracker metricTracker;
 
     @Override
     public void open(FunctionContext context) throws Exception {

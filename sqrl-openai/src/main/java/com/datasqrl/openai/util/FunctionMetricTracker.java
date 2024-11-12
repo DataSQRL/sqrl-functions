@@ -11,10 +11,10 @@ public class FunctionMetricTracker {
     public static final String ERROR_COUNT = "com.datasqrl.openai.%s.errorCount";
     public static final String RETRY_COUNT = "com.datasqrl.openai.%s.retryCount";
 
-    private transient final P99LatencyTracker latencyTracker = new P99LatencyTracker();
-    private transient final Counter callCount;
-    private transient final Counter errorCount;
-    private transient final Counter retryCount;
+    private final P99LatencyTracker latencyTracker = new P99LatencyTracker();
+    private final Counter callCount;
+    private final Counter errorCount;
+    private final Counter retryCount;
 
     public FunctionMetricTracker(FunctionContext context, String functionName) {
         final String p99MetricName = String.format(P99_METRIC, functionName);

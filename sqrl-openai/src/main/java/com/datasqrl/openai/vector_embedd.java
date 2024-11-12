@@ -12,8 +12,8 @@ import static com.datasqrl.openai.RetryUtil.executeWithRetry;
 @AutoService(ScalarFunction.class)
 public class vector_embedd extends ScalarFunction {
 
-    private OpenAIEmbeddings openAIEmbeddings;
-    private FunctionMetricTracker metricTracker;
+    private transient OpenAIEmbeddings openAIEmbeddings;
+    private transient FunctionMetricTracker metricTracker;
 
     @Override
     public void open(FunctionContext context) throws Exception {
