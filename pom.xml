@@ -12,7 +12,8 @@
   <url>http://www.datasqrl.com</url>
   <modules>
     <module>sqrl-math</module>
-      <module>sqrl-openai</module>
+    <module>sqrl-openai</module>
+    <module>sqrl-pytorch</module>
   </modules>
 
   <properties>

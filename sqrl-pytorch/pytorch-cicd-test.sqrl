@@ -1,0 +1,10 @@
+IMPORT target.*;
+
+data := SELECT * FROM (VALUES
+                (('Crunching data like a squirrel.'), ('sentence-transformers/all-MiniLM-L6-v2'))
+            ) AS t(text, model);
+
+/*+test */
+results := SELECT
+            CAST(text_embedding(text, model) AS STRING) AS vector_embedd_result
+           FROM data;
