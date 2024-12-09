@@ -5,20 +5,16 @@ import com.google.auto.service.AutoService;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.ScalarFunction;
 
-import java.util.concurrent.TimeUnit;
-
-import static com.datasqrl.openai.RetryUtil.executeWithRetry;
-
 @AutoService(ScalarFunction.class)
 public class completions extends ScalarFunction {
 
     private transient OpenAICompletions openAICompletions;
-    private transient FunctionMetricTracker metricTracker;
+    private transient FunctionExecutor executor;
 
     @Override
     public void open(FunctionContext context) throws Exception {
         this.openAICompletions = createOpenAICompletions();
-        this.metricTracker = createMetricTracker(context, completions.class.getSimpleName());
+        this.executor = new FunctionExecutor(context, completions.class.getSimpleName());
     }
 
     protected OpenAICompletions createOpenAICompletions() {
@@ -44,19 +40,8 @@ public class completions extends ScalarFunction {
     public String eval(String prompt, String modelName, Integer maxOutputTokens, Double temperature, Double topP) {
         if (prompt == null || modelName == null) return null;
 
-        metricTracker.increaseCallCount();
-
-        long start = System.nanoTime();
-
-        String ret = executeWithRetry(
-                () -> openAICompletions.callCompletions(prompt, modelName, false, maxOutputTokens, temperature, topP),
-                () -> metricTracker.increaseErrorCount(),
-                () -> metricTracker.increaseRetryCount()
+        return executor.execute(
+                () -> openAICompletions.callCompletions(prompt, modelName, false, maxOutputTokens, temperature, topP)
         );
-
-        long elapsedTime = System.nanoTime() - start;
-        metricTracker.recordLatency(TimeUnit.NANOSECONDS.toMillis(elapsedTime));
-
-        return ret;
     }
 }
