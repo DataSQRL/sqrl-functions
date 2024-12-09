@@ -65,7 +65,7 @@ public class OpenAICompletions {
         if (requireJsonOutput) {
             // when the model supports JSON output, both setting is needed otherwise the API call will fail
             requestBody.putObject("response_format").put("type", "json_object");
-            messagesArray.add(createMessage("system", "You are a helpful assistant designed to output JSON."));
+            messagesArray.add(createMessage("system", "You are a helpful assistant designed to output minified JSON."));
         }
 
         messagesArray.add(createMessage("user", prompt));

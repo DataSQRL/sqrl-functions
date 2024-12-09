@@ -4,19 +4,19 @@ import com.google.auto.service.AutoService;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.ScalarFunction;
 
-import static com.datasqrl.openai.RetryUtil.executeWithRetry;
-
 @AutoService(ScalarFunction.class)
 public class extract_json extends ScalarFunction {
 
-    private OpenAICompletions openAICompletions;
+    private transient OpenAICompletions openAICompletions;
+    private transient FunctionExecutor executor;
 
     @Override
     public void open(FunctionContext context) throws Exception {
         this.openAICompletions = createOpenAICompletions();
+        this.executor = new FunctionExecutor(context, extract_json.class.getSimpleName());
     }
 
-    public OpenAICompletions createOpenAICompletions() {
+    protected OpenAICompletions createOpenAICompletions() {
         return new OpenAICompletions();
     }
 
@@ -29,7 +29,9 @@ public class extract_json extends ScalarFunction {
     }
 
     public String eval(String prompt, String modelName, Double temperature, Double topP) {
-        return executeWithRetry(
+        if (prompt == null || modelName == null) return null;
+
+        return executor.execute(
                 () -> openAICompletions.callCompletions(prompt, modelName, true, null, temperature, topP)
         );
     }
