@@ -2,11 +2,14 @@ package com.datasqrl.openai;
 
 import com.datasqrl.openai.util.FunctionMetricTracker;
 import com.google.auto.service.AutoService;
+import org.apache.flink.table.functions.AsyncScalarFunction;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.ScalarFunction;
 
+import java.util.concurrent.CompletableFuture;
+
 @AutoService(ScalarFunction.class)
-public class vector_embedd extends ScalarFunction {
+public class vector_embedd extends AsyncScalarFunction {
 
     private transient OpenAIEmbeddings openAIEmbeddings;
     private transient FunctionExecutor executor;
@@ -25,11 +28,9 @@ public class vector_embedd extends ScalarFunction {
         return new FunctionMetricTracker(context, functionName);
     }
 
-    public double[] eval(String text, String modelName) {
-        if (text == null || modelName == null) return null;
-
-        return executor.execute(
-                () -> openAIEmbeddings.vectorEmbedd(text, modelName)
-        );
+    public void eval(CompletableFuture<double[]> result, String text, String modelName) {
+        executor.executeAsync(() -> openAIEmbeddings.vectorEmbedd(text, modelName))
+                .thenAccept(result::complete)
+                .exceptionally(ex -> { result.completeExceptionally(ex); return null; });
     }
 }

@@ -33,6 +33,10 @@ public class OpenAICompletions {
     }
 
     public String callCompletions(String prompt, String modelName, Boolean requireJsonOutput, Integer maxOutputTokens, Double temperature, Double topP) throws IOException, InterruptedException {
+        if (prompt == null || modelName == null) {
+            return null;
+        }
+
         // Create the request body JSON
         ObjectNode requestBody = createRequestBody(prompt, modelName, requireJsonOutput, maxOutputTokens, temperature, topP);
 

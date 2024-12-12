@@ -6,6 +6,9 @@ import org.apache.flink.table.functions.FunctionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -14,6 +17,8 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 
 import static com.datasqrl.openai.util.FunctionMetricTracker.*;
 import static java.lang.String.format;
@@ -77,7 +82,10 @@ class VectorEmbeddTest {
         when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class))).thenReturn(httpResponse);
 
         // Execute function
-        double[] result = function.eval("some text", "model-name");
+        CompletableFuture<double[]> future = new CompletableFuture<>();
+        function.eval(future, "some text", "model-name");
+
+        double[] result = future.join();
 
         verify(callCounter, times(1)).inc();
         verify(errorCounter, never()).inc();
@@ -94,7 +102,10 @@ class VectorEmbeddTest {
                 .thenThrow(new IOException("Test Exception"));
 
         // Attempt to call vectorEmbedd, expecting retries
-        double[] result = function.eval("some text", "model-name");
+        CompletableFuture<double[]> future = new CompletableFuture<>();
+        function.eval(future, "some text", "model-name");
+
+        double[] result = future.join();
 
         // Verify that HttpClient's send method was called 3 times due to retries
         verify(httpClient, times(3)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
@@ -107,12 +118,24 @@ class VectorEmbeddTest {
         assertNull(result);
     }
 
-    @Test
-    void testEvalWhenInputIsInvalid() throws IOException, InterruptedException {
-        assertNull(function.eval(null, null));
-        assertNull(function.eval("", null));
-        assertNull(function.eval(null, ""));
+    @ParameterizedTest
+    @MethodSource("provideInvalidTestArguments")
+    void testEvalWhenInputIsInvalid(String prompt, String modelName) throws IOException, InterruptedException {
+        CompletableFuture<double[]> future = new CompletableFuture<>();
+        function.eval(future, prompt, modelName);
+
+        double[] result = future.join();
+
+        assertNull(result);
 
         verify(httpClient, never()).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    }
+
+    private static Stream<Arguments> provideInvalidTestArguments() {
+        return Stream.of(
+                Arguments.of(null, null),
+                Arguments.of("", null),
+                Arguments.of(null, "")
+        );
     }
 }

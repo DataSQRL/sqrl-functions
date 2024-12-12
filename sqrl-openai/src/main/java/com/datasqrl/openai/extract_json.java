@@ -1,11 +1,14 @@
 package com.datasqrl.openai;
 
 import com.google.auto.service.AutoService;
+import org.apache.flink.table.functions.AsyncScalarFunction;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.ScalarFunction;
 
+import java.util.concurrent.CompletableFuture;
+
 @AutoService(ScalarFunction.class)
-public class extract_json extends ScalarFunction {
+public class extract_json extends AsyncScalarFunction {
 
     private transient OpenAICompletions openAICompletions;
     private transient FunctionExecutor executor;
@@ -20,19 +23,17 @@ public class extract_json extends ScalarFunction {
         return new OpenAICompletions();
     }
 
-    public String eval(String prompt, String modelName) {
-        return eval(prompt, modelName, null, null);
+    public void eval(CompletableFuture<String> result, String prompt, String modelName) {
+        eval(result, prompt, modelName, null, null);
     }
 
-    public String eval(String prompt, String modelName, Double temperature) {
-        return eval(prompt, modelName, temperature, null);
+    public void eval(CompletableFuture<String> result, String prompt, String modelName, Double temperature) {
+        eval(result, prompt, modelName, temperature, null);
     }
 
-    public String eval(String prompt, String modelName, Double temperature, Double topP) {
-        if (prompt == null || modelName == null) return null;
-
-        return executor.execute(
-                () -> openAICompletions.callCompletions(prompt, modelName, true, null, temperature, topP)
-        );
+    public void eval(CompletableFuture<String> result, String prompt, String modelName, Double temperature, Double topP) {
+        executor.executeAsync(() -> openAICompletions.callCompletions(prompt, modelName, true, null, temperature, topP))
+                .thenAccept(result::complete)
+                .exceptionally(ex -> { result.completeExceptionally(ex); return null; });
     }
 }

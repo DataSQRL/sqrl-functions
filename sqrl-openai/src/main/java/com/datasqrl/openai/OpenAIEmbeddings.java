@@ -31,6 +31,10 @@ public class OpenAIEmbeddings {
     }
 
     public double[] vectorEmbedd(String text, String modelName) throws IOException, InterruptedException {
+        if (text == null || modelName == null) {
+            return null;
+        }
+
         return vectorEmbedd(text, modelName, TOKEN_LIMIT);
     }
 

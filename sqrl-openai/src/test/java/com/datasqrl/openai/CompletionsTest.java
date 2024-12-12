@@ -6,6 +6,9 @@ import org.apache.flink.table.functions.FunctionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -14,6 +17,8 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 
 import static com.datasqrl.openai.util.FunctionMetricTracker.*;
 import static java.lang.String.format;
@@ -88,7 +93,10 @@ class CompletionsTest {
         when(mockHttpResponse.statusCode()).thenReturn(200);
         when(mockHttpResponse.body()).thenReturn(responseBody);
 
-        String result = function.eval("prompt", "model", 100, 0.1, 0.9);
+        CompletableFuture<String> future = new CompletableFuture<>();
+        function.eval(future, "prompt", "model", 100, 0.1, 0.9);
+
+        String result = future.join();
 
         verify(callCounter, times(1)).inc();
         verify(errorCounter, never()).inc();
@@ -117,9 +125,12 @@ class CompletionsTest {
         when(mockHttpResponse.statusCode()).thenReturn(200);
         when(mockHttpResponse.body()).thenReturn(responseBody);
 
-        String result = function.eval("prompt", "model");
+        CompletableFuture<String> future = new CompletableFuture<>();
+        function.eval(future, "prompt", "model");
 
-        verify(callCounter, times(1)).inc();
+        String result = future.join();
+
+                verify(callCounter, times(1)).inc();
         verify(errorCounter, never()).inc();
         verify(retryCounter, never()).inc();
 
@@ -132,9 +143,12 @@ class CompletionsTest {
         when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
                 .thenThrow(new IOException("Test Exception"));
 
-        String result = function.eval("prompt", "model", 100, 0.1, 0.9);
+        CompletableFuture<String> future = new CompletableFuture<>();
+        function.eval(future, "prompt", "model", 100, 0.1, 0.9);
 
-        // Verify that the send method was attempted 3 times
+        String result = future.join();
+
+                // Verify that the send method was attempted 3 times
         verify(mockHttpClient, times(3)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
 
         verify(callCounter, times(1)).inc();
@@ -144,12 +158,24 @@ class CompletionsTest {
         assertNull(result);
     }
 
-    @Test
-    void testEvalWhenInputIsInvalid() throws IOException, InterruptedException {
-        assertNull(function.eval(null, null));
-        assertNull(function.eval("", null));
-        assertNull(function.eval(null, ""));
+    @ParameterizedTest
+    @MethodSource("provideInvalidTestArguments")
+    void testEvalWhenInputIsInvalid(String prompt, String modelName) throws IOException, InterruptedException {
+        CompletableFuture<String> future = new CompletableFuture<>();
+        function.eval(future, prompt, modelName);
+
+        String result = future.join();
+
+        assertNull(result);
 
         verify(mockHttpClient, never()).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    }
+
+    private static Stream<Arguments> provideInvalidTestArguments() {
+        return Stream.of(
+                Arguments.of(null, null),
+                Arguments.of("", null),
+                Arguments.of(null, "")
+        );
     }
 }

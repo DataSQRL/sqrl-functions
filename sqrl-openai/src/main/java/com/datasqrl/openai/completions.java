@@ -2,11 +2,14 @@ package com.datasqrl.openai;
 
 import com.datasqrl.openai.util.FunctionMetricTracker;
 import com.google.auto.service.AutoService;
+import org.apache.flink.table.functions.AsyncScalarFunction;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.ScalarFunction;
 
+import java.util.concurrent.CompletableFuture;
+
 @AutoService(ScalarFunction.class)
-public class completions extends ScalarFunction {
+public class completions extends AsyncScalarFunction {
 
     private transient OpenAICompletions openAICompletions;
     private transient FunctionExecutor executor;
@@ -25,23 +28,21 @@ public class completions extends ScalarFunction {
         return new FunctionMetricTracker(context, functionName);
     }
 
-    public String eval(String prompt, String modelName) {
-        return eval(prompt, modelName, null, null, null);
+    public void eval(CompletableFuture<String> result, String prompt, String modelName) {
+        eval(result, prompt, modelName, null, null, null);
     }
 
-    public String eval(String prompt, String modelName, Integer maxOutputTokens) {
-        return eval(prompt, modelName, maxOutputTokens, null, null);
+    public void eval(CompletableFuture<String> result, String prompt, String modelName, Integer maxOutputTokens) {
+        eval(result, prompt, modelName, maxOutputTokens, null, null);
     }
 
-    public String eval(String prompt, String modelName, Integer maxOutputTokens, Double temperature) {
-        return eval(prompt, modelName, maxOutputTokens, temperature, null);
+    public void eval(CompletableFuture<String> result, String prompt, String modelName, Integer maxOutputTokens, Double temperature) {
+        eval(result, prompt, modelName, maxOutputTokens, temperature, null);
     }
 
-    public String eval(String prompt, String modelName, Integer maxOutputTokens, Double temperature, Double topP) {
-        if (prompt == null || modelName == null) return null;
-
-        return executor.execute(
-                () -> openAICompletions.callCompletions(prompt, modelName, false, maxOutputTokens, temperature, topP)
-        );
+    public void eval(CompletableFuture<String> result, String prompt, String modelName, Integer maxOutputTokens, Double temperature, Double topP) {
+        executor.executeAsync(() -> openAICompletions.callCompletions(prompt, modelName, false, maxOutputTokens, temperature, topP))
+                .thenAccept(result::complete)
+                .exceptionally(ex -> { result.completeExceptionally(ex); return null; });
     }
 }
