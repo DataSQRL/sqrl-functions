@@ -38,10 +38,10 @@ public class OpenAICompletions {
         }
 
         // Create the request body JSON
-        ObjectNode requestBody = createRequestBody(prompt, modelName, requireJsonOutput, maxOutputTokens, temperature, topP);
+        final ObjectNode requestBody = createRequestBody(prompt, modelName, requireJsonOutput, maxOutputTokens, temperature, topP);
 
         // Build the HTTP request
-        HttpRequest request = HttpRequest.newBuilder()
+        final HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(COMPLETIONS_API))
                 .header("Authorization", "Bearer " + System.getenv(API_KEY))
                 .header("Content-Type", "application/json")
@@ -49,7 +49,7 @@ public class OpenAICompletions {
                 .build();
 
         // Send the request and get the response
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        final HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         // Handle the response
         if (response.statusCode() == 200) {
@@ -60,11 +60,11 @@ public class OpenAICompletions {
     }
 
     private ObjectNode createRequestBody(String prompt, String modelName, Boolean requireJsonOutput, Integer maxOutputTokens, Double temperature, Double topP) {
-        ObjectNode requestBody = objectMapper.createObjectNode();
+        final ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.put("model", modelName);
 
         // Create the messages array as required by the chat completions endpoint
-        ArrayNode messagesArray = objectMapper.createArrayNode();
+        final ArrayNode messagesArray = objectMapper.createArrayNode();
 
         if (requireJsonOutput) {
             // when the model supports JSON output, both setting is needed otherwise the API call will fail

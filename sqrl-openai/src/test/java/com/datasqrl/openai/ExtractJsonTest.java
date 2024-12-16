@@ -49,9 +49,6 @@ class ExtractJsonTest {
     @Mock
     private Counter errorCounter;
 
-    @Mock
-    private Counter retryCounter;
-
     private extract_json function;
 
     @BeforeEach
@@ -61,7 +58,6 @@ class ExtractJsonTest {
         when(functionContext.getMetricGroup()).thenReturn(metricGroup);
         when(metricGroup.counter(eq(format(CALL_COUNT, functionName)))).thenReturn(callCounter);
         when(metricGroup.counter(eq(format(ERROR_COUNT, functionName)))).thenReturn(errorCounter);
-        when(metricGroup.counter(eq(format(RETRY_COUNT, functionName)))).thenReturn(retryCounter);
 
         function = new extract_json() {
             @Override
@@ -99,7 +95,6 @@ class ExtractJsonTest {
 
         verify(callCounter, times(1)).inc();
         verify(errorCounter, never()).inc();
-        verify(retryCounter, never()).inc();
 
         assertEquals(expectedResponse, result);
     }
@@ -131,30 +126,33 @@ class ExtractJsonTest {
 
         verify(callCounter, times(1)).inc();
         verify(errorCounter, never()).inc();
-        verify(retryCounter, never()).inc();
 
         assertEquals(expectedResponse, result);
     }
 
     @Test
     void testEvalErrorHandling() throws IOException, InterruptedException {
+        IOException exception = new IOException("Test Exception");
+
         // Configure the mock to throw an IOException, simulating repeated failures
         when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-                .thenThrow(new IOException("Test Exception"));
+                .thenThrow(exception);
 
         CompletableFuture<String> future = new CompletableFuture<>();
         function.eval(future, "prompt", "model", 0.7, 0.9);
 
-        String result = future.join();
+        try {
+            future.join();
+            fail("Expected an exception to be thrown");
+        } catch (Exception e) {
+            // expected
+            assertEquals(exception, e.getCause());
+        }
 
-                // Verify that the send method was attempted 3 times due to retry logic
-        verify(mockHttpClient, times(3)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+        verify(mockHttpClient, times(1)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
 
         verify(callCounter, times(1)).inc();
         verify(errorCounter, times(1)).inc();
-        verify(retryCounter, times(2)).inc();
-
-        assertNull(result);
     }
 
     @ParameterizedTest
