@@ -89,7 +89,7 @@ class ExtractJsonTest {
         when(mockHttpResponse.body()).thenReturn(responseBody);
 
         CompletableFuture<String> future = new CompletableFuture<>();
-        function.eval(future, "prompt", "model", 0.1, 0.9);
+        function.eval(future, "prompt", "model");
 
         String result = future.join();
 
@@ -139,7 +139,7 @@ class ExtractJsonTest {
                 .thenThrow(exception);
 
         CompletableFuture<String> future = new CompletableFuture<>();
-        function.eval(future, "prompt", "model", 0.7, 0.9);
+        function.eval(future, "prompt", "model");
 
         try {
             future.join();

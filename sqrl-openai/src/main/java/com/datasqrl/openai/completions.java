@@ -41,7 +41,19 @@ public class completions extends AsyncScalarFunction {
     }
 
     public void eval(CompletableFuture<String> result, String prompt, String modelName, Integer maxOutputTokens, Double temperature, Double topP) {
-        executor.executeAsync(() -> openAICompletions.callCompletions(prompt, modelName, false, null, maxOutputTokens, temperature, topP))
+        final CompletionsRequest request = new CompletionsRequest.CompletionsRequestBuilder()
+                .prompt(prompt)
+                .modelName(modelName)
+                .maxOutputTokens(maxOutputTokens)
+                .temperature(temperature)
+                .topP(topP)
+                .build();
+
+        executeRequest(result, request);
+    }
+
+    private void executeRequest(CompletableFuture<String> result, CompletionsRequest request) {
+        executor.executeAsync(() -> openAICompletions.callCompletions(request))
                 .thenAccept(result::complete)
                 .exceptionally(ex -> { result.completeExceptionally(ex); return null; });
     }
