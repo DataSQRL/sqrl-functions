@@ -32,7 +32,7 @@ public class extract_json extends AsyncScalarFunction {
     }
 
     public void eval(CompletableFuture<String> result, String prompt, String modelName, Double temperature, Double topP) {
-        executor.executeAsync(() -> openAICompletions.callCompletions(prompt, modelName, true, null, temperature, topP))
+        executor.executeAsync(() -> openAICompletions.callCompletions(prompt, modelName, true, null, null, temperature, topP))
                 .thenAccept(result::complete)
                 .exceptionally(ex -> { result.completeExceptionally(ex); return null; });
     }

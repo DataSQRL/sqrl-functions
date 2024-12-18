@@ -1,5 +1,6 @@
 package com.datasqrl.openai;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
@@ -32,13 +33,13 @@ public class OpenAICompletions {
         this.httpClient = httpClient;
     }
 
-    public String callCompletions(String prompt, String modelName, Boolean requireJsonOutput, Integer maxOutputTokens, Double temperature, Double topP) throws IOException, InterruptedException {
+    public String callCompletions(String prompt, String modelName, Boolean requireJsonOutput, String jsonSchema, Integer maxOutputTokens, Double temperature, Double topP) throws IOException, InterruptedException {
         if (prompt == null || modelName == null) {
             return null;
         }
 
         // Create the request body JSON
-        final ObjectNode requestBody = createRequestBody(prompt, modelName, requireJsonOutput, maxOutputTokens, temperature, topP);
+        final ObjectNode requestBody = createRequestBody(prompt, modelName, requireJsonOutput, jsonSchema, maxOutputTokens, temperature, topP);
 
         // Build the HTTP request
         final HttpRequest request = HttpRequest.newBuilder()
@@ -59,7 +60,7 @@ public class OpenAICompletions {
         }
     }
 
-    private ObjectNode createRequestBody(String prompt, String modelName, Boolean requireJsonOutput, Integer maxOutputTokens, Double temperature, Double topP) {
+    private ObjectNode createRequestBody(String prompt, String modelName, Boolean requireJsonOutput, String jsonSchema, Integer maxOutputTokens, Double temperature, Double topP) {
         final ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.put("model", modelName);
 
@@ -67,8 +68,24 @@ public class OpenAICompletions {
         final ArrayNode messagesArray = objectMapper.createArrayNode();
 
         if (requireJsonOutput) {
+            if (jsonSchema != null) {
+                JsonNode schemaNode;
+                try {
+                    schemaNode = objectMapper.readTree(jsonSchema);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+
+                requestBody.putObject("response_format")
+                        .put("type", "json_schema")
+                        .putObject("json_schema")
+                            .put("strict", true)
+                            .set("schema", schemaNode);
+            } else {
+                requestBody.putObject("response_format").put("type", "json_object");
+            }
             // when the model supports JSON output, both setting is needed otherwise the API call will fail
-            requestBody.putObject("response_format").put("type", "json_object");
+
             messagesArray.add(createMessage("system", "You are a helpful assistant designed to output minified JSON."));
         }
 
