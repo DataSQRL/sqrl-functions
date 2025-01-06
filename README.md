@@ -17,6 +17,7 @@ sqrl login
 
 ### 2. Prepare the Function Package
 Each function package must include a `sqrl-package` directory. Navigate to this directory or create it if it doesn’t exist.
+Then, copy the necessary assemblies, such as *.jar files, into this folder.
 
 ### 3. Update Function Descriptors
 Function descriptors are used to tell the compiler how to load the functions. Make the following updates as needed:
