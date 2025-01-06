@@ -1,0 +1,8 @@
+IMPORT target.*;
+
+data := SELECT * FROM (VALUES('SQRL')) AS t(val);
+
+/*+test */
+results := SELECT
+            FORMAT('Hello %s!', val) AS format_result
+           FROM data;

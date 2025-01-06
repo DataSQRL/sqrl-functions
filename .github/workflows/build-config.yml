@@ -45,3 +45,8 @@ jobs:
         working-directory: ./sqrl-secure
         run: |
           docker run -i --rm -v $PWD:/build datasqrl/cmd:latest test secure-cicd-test.sqrl --snapshot snapshots-secure-cicd-test
+
+      - name: Run SQRL Text Test
+        working-directory: ./sqrl-text
+        run: |
+          docker run -i --rm -v $PWD:/build datasqrl/cmd:latest test text-cicd-test.sqrl --snapshot snapshots-text-cicd-test
