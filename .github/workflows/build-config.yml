@@ -40,3 +40,8 @@ jobs:
         working-directory: ./sqrl-openai
         run: |
           docker run -i --rm -v $PWD:/build -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" datasqrl/cmd:latest test openai-cicd-test.sqrl --snapshot snapshots-openai-cicd-test
+
+      - name: Run SQRL Secure Test
+        working-directory: ./sqrl-secure
+        run: |
+          docker run -i --rm -v $PWD:/build datasqrl/cmd:latest test secure-cicd-test.sqrl --snapshot snapshots-secure-cicd-test

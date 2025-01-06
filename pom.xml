@@ -11,8 +11,10 @@
   <name>sqrl-functions</name>
   <url>http://www.datasqrl.com</url>
   <modules>
+    <module>sqrl-lib-common</module>
     <module>sqrl-math</module>
-      <module>sqrl-openai</module>
+    <module>sqrl-openai</module>
+    <module>sqrl-secure</module>
   </modules>
 
   <properties>
@@ -27,6 +29,12 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>com.datasqrl</groupId>
+        <artifactId>sqrl-lib-common</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+
       <dependency>
         <groupId>org.projectlombok</groupId>
         <artifactId>lombok</artifactId>

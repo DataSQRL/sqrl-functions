@@ -1,0 +1,9 @@
+IMPORT target.*;
+
+data := SELECT * FROM (VALUES(1)) AS t(val);
+
+/*+test */
+results := SELECT
+            CHAR_LENGTH(RandomID(val)) = 2 AS is_random_id_result_length_ok,
+            CHAR_LENGTH(Uuid()) = 36 AS is_uuid_result_length_ok
+           FROM data;
