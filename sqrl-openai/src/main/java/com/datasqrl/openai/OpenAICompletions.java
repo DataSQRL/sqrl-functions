@@ -1,5 +1,6 @@
 package com.datasqrl.openai;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
@@ -32,16 +33,16 @@ public class OpenAICompletions {
         this.httpClient = httpClient;
     }
 
-    public String callCompletions(String prompt, String modelName, Boolean requireJsonOutput, Integer maxOutputTokens, Double temperature, Double topP) throws IOException, InterruptedException {
-        if (prompt == null || modelName == null) {
+    public String callCompletions(CompletionsRequest request) throws IOException, InterruptedException {
+        if (request.getPrompt() == null || request.getModelName() == null) {
             return null;
         }
 
         // Create the request body JSON
-        final ObjectNode requestBody = createRequestBody(prompt, modelName, requireJsonOutput, maxOutputTokens, temperature, topP);
+        final ObjectNode requestBody = createRequestBody(request);
 
         // Build the HTTP request
-        final HttpRequest request = HttpRequest.newBuilder()
+        final HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(COMPLETIONS_API))
                 .header("Authorization", "Bearer " + System.getenv(API_KEY))
                 .header("Content-Type", "application/json")
@@ -49,7 +50,7 @@ public class OpenAICompletions {
                 .build();
 
         // Send the request and get the response
-        final HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        final HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
 
         // Handle the response
         if (response.statusCode() == 200) {
@@ -59,28 +60,47 @@ public class OpenAICompletions {
         }
     }
 
-    private ObjectNode createRequestBody(String prompt, String modelName, Boolean requireJsonOutput, Integer maxOutputTokens, Double temperature, Double topP) {
+    private ObjectNode createRequestBody(CompletionsRequest request) {
         final ObjectNode requestBody = objectMapper.createObjectNode();
-        requestBody.put("model", modelName);
+        requestBody.put("model", request.getModelName());
 
         // Create the messages array as required by the chat completions endpoint
         final ArrayNode messagesArray = objectMapper.createArrayNode();
 
-        if (requireJsonOutput) {
-            // when the model supports JSON output, both setting is needed otherwise the API call will fail
-            requestBody.putObject("response_format").put("type", "json_object");
+        if (Boolean.TRUE.equals(request.isRequireJsonOutput())) {
+            if (request.getJsonSchema() != null) {
+                JsonNode schemaNode;
+                try {
+                    schemaNode = objectMapper.readTree(request.getJsonSchema());
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException("Failed to parse JSON schema", e);
+                }
+
+                // `json_schema.name` is a mandatory field, but unsure for what the value is used.
+                // It could be used for caching, but after a few tests, it seems to be ignored.
+                requestBody.putObject("response_format")
+                        .put("type", "json_schema")
+                        .putObject("json_schema")
+                            .put("name", "extract_json_schema_name")
+                            .put("strict", true)
+                            .set("schema", schemaNode);
+            } else {
+                requestBody.putObject("response_format")
+                        .put("type", "json_object");
+            }
+
             messagesArray.add(createMessage("system", "You are a helpful assistant designed to output minified JSON."));
         }
 
-        messagesArray.add(createMessage("user", prompt));
+        messagesArray.add(createMessage("user", request.getPrompt()));
 
         requestBody.set("messages", messagesArray);
-        requestBody.put("temperature", temperature != null ? temperature : TEMPERATURE_DEFAULT);
-        requestBody.put("top_p", topP != null ? topP : TOP_P_DEFAULT);
+        requestBody.put("temperature", request.getTemperature() == null ? TEMPERATURE_DEFAULT : request.getTemperature());
+        requestBody.put("top_p", request.getTopP() == null ? TOP_P_DEFAULT : request.getTopP());
         requestBody.put("n", 1); // Number of completions to generate
 
-        if (maxOutputTokens != null) {
-            requestBody.put("max_tokens", maxOutputTokens);
+        if (request.getMaxOutputTokens() != null) {
+            requestBody.put("max_tokens", request.getMaxOutputTokens());
         }
 
         return requestBody;
